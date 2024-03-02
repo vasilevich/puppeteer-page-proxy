@@ -7,7 +7,8 @@ const type = require("../util/types");
 const requestHandler = async (request, proxy, overrides = {}) => {
     // Reject non http(s) URI schemes
     if (!request.url().startsWith("http") && !request.url().startsWith("https")) {
-        request.continue(); return;
+        request.continue();
+        return;
     }
     const cookieHandler = new CookieHandler(request);
     // Request options for GOT accounting for overrides
@@ -44,15 +45,11 @@ const requestHandler = async (request, proxy, overrides = {}) => {
 
 // For reassigning proxy of page
 const removeRequestListener = (page, listenerName) => {
-    const eventName = "request";
-    const listeners = page.eventsMap.get(eventName);
-    if (listeners) {
-        const i = listeners.findIndex((listener) => {
-            return listener.name === listenerName
-        });
-        listeners.splice(i, 1);
-        if (!listeners.length) {
-            page.eventsMap.delete(eventName);
+    if (page.customListenersMap123) {
+        const listener = page.customListenersMap123[listenerName];
+        if (listener) {
+            page.removeListener("request", listener);
+            delete page.customListenersMap123[listenerName];
         }
     }
 };
@@ -68,10 +65,15 @@ const useProxyPer = {
                 delete data.proxy;
                 overrides = data;
             }
-        } else {proxy = data}
+        } else {
+            proxy = data
+        }
         // Skip request if proxy omitted
-        if (proxy) {await requestHandler(request, proxy, overrides)}
-        else {request.continue(overrides)}
+        if (proxy) {
+            await requestHandler(request, proxy, overrides)
+        } else {
+            request.continue(overrides)
+        }
     },
 
     // Call this if page object passed
@@ -79,11 +81,21 @@ const useProxyPer = {
         await page.setRequestInterception(true);
         const listener = "$ppp_requestListener";
         removeRequestListener(page, listener);
-        const f = {[listener]: async (request) => {
-            await requestHandler(request, proxy);
-        }};
-        if (proxy) {page.on("request", f[listener])}
-        else {await page.setRequestInterception(false)}
+        const f = {
+            [listener]: async (request) => {
+                await requestHandler(request, proxy);
+            }
+        };
+        if (proxy) {
+            const l = f[listener];
+            page.on("request", l)
+            if (!page.customListenersMap123) {
+                page.customListenersMap123 = {};
+            }
+            page.customListenersMap123[listener] = l;
+        } else {
+            await page.setRequestInterception(false)
+        }
     }
 }
 Object.keys(useProxyPer).forEach(k => useProxyPer[k.toLowerCase()] = useProxyPer[k]);
