@@ -86,10 +86,10 @@ const useProxyPer = {
         else {await page.setRequestInterception(false)}
     }
 }
-
+Object.keys(useProxyPer).forEach(k => useProxyPer[k.toLowerCase()] = useProxyPer[k]);
 // Main function
 const useProxy = async (target, data) => {
-    useProxyPer[target.constructor.name](target, data);
+    useProxyPer[target.constructor.name.toLowerCase()](target, data);
 };
 
 module.exports = useProxy;
